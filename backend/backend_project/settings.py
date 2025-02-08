@@ -10,23 +10,27 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
+from dotenv import load_dotenv
+from celery.schedules import crontab
 from pathlib import Path
+import logging
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8d*s_^4r=h!mxwph66pi3j*qz%oovhr-y3=&u=r26_7ju=ymza'
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
-
 
 # Application definition
 
@@ -57,6 +61,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+CELERY_BROKER_URL = "redis://redis:6379/0"
+BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+
 ROOT_URLCONF = 'backend_project.urls'
 
 TEMPLATES = [
@@ -83,11 +93,14 @@ WSGI_APPLICATION = 'backend_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv("POSTGRES_DB", "eduplat_database"),
+        'USER': os.getenv("POSTGRES_USER", "eduplat_user"),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD", "eduplat_password"),
+        'HOST': os.getenv("POSTGRES_HOST", "db"),  # This should match the service name
+        'PORT': os.getenv("POSTGRES_PORT", "5432"),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -123,9 +136,40 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'staticfiles/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOG_DIR = '/backend_app/logs'
+os.makedirs(LOG_DIR, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(LOG_DIR, "debug.log"),
+        },
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+    },
+}
+YOUTUBE_CLIENT_SECRET = os.getenv("SECRET_KEY")
+YOUTUBE_API_KEY = os.getenv("API_PUBLIC_KEY")

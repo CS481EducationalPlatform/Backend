@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     UserInfoViewAll, TopicViewAll, TagViewAll, CourseViewAll,
-    LessonViewAll, AppliedTagViewAll, PageViewAll, UploadedViewAll
+    LessonViewAll, AppliedTagViewAll, PageViewAll, UploadedViewAll,
 )
 
 router = DefaultRouter()
