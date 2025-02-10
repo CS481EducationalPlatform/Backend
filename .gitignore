@@ -1,5 +1,5 @@
 # Ignore database migrations (but keep __init__.py)
-**/migrations/*.py
+#**/migrations/*.py
 !**/migrations/__init__.py
 **/migrations/*.pyc
 
@@ -14,3 +14,6 @@ __pycache__/
 # backend/backend_project/settings.py
 
 db.sqlite3
+
+# Ignore logs
+**/logs/*

@@ -59,6 +59,9 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://localhost:8000",
+    "http://localhost:8001",
+    "http://localhost:8080",
 ]
 
 CELERY_BROKER_URL = "redis://redis:6379/0"
@@ -171,5 +174,5 @@ LOGGING = {
         },
     },
 }
-YOUTUBE_CLIENT_SECRET = os.getenv("SECRET_KEY")
-YOUTUBE_API_KEY = os.getenv("API_PUBLIC_KEY")
+# YOUTUBE_CLIENT_SECRET = os.getenv("SECRET_KEY")
+# YOUTUBE_API_KEY = os.getenv("API_PUBLIC_KEY")

@@ -5,7 +5,12 @@
 Current status: Imported Django backend demo project, now to incorporate into Docker backend demo project. 
 
 # Setup Commands
+Start Docker
 ```
+#Go to /Backend/backend
+#Add execute permissions to entrypoint.sh
+wsl chmod +x entrypoint.sh
+
 #Take down containers and empty volumes
 docker-compose down --volumes
 #Prop up containers
@@ -18,10 +23,13 @@ pip install --upgrade google-api-python-client
 #Migrate tables and create an administrator
 docker-compose exec web python manage.py migrate
 docker-compose exec web python manage.py createsuperuser
+
+#Get SECRET_KEY and add to .env SECRET_KEY=""
+docker-compose exec web python -c "import secrets; print(secrets.token_urlsafe(50))"
 ```
 
 # Ports Used
-8000 : web : Django Backend
+8001 : web : Django Backend
 5173 : Currently Allowed FrontEnd CORS
 6379 : Redis?
 5432 : db : Postgres DB
@@ -35,6 +43,7 @@ POSTGRES_PASSWORD=
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 DEBUG=True
+SECRET_KEY=
 
 ## License
 

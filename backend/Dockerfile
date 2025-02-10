@@ -17,11 +17,11 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 
 # Expose the port Django runs on
-EXPOSE 8000
+EXPOSE 8001
 
 # Run database migrations and start the Django server
-#CMD ["gunicorn", "backend_project.wsgi:application", "--bind", "0.0.0.0:8000"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--log-level=debug", "--access-logfile=-", "--error-logfile=-", "backend_project.wsgi:application"]
+#CMD ["gunicorn", "backend_project.wsgi:application", "--bind", "0.0.0.0:8001"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--log-level=debug", "--access-logfile=-", "--error-logfile=-", "backend_project.wsgi:application"]
 
 #Create logs directory and set permissions (to allow logging)
 RUN mkdir -p /backend_app/logs && chmod -R 777 /backend_app/logs
