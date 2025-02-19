@@ -8,7 +8,7 @@ logger = logging.getLogger("django")
 load_dotenv()
 
 @shared_task
-def upload_to_youtube(file_base64, file_name, file_size, title, description, user_id, course_id, page_id, access_token):
+def upload_to_youtube(file_base64, file_size, title, description, access_token):
     try:
         # https://developers.google.com/youtube/v3/docs/videos/insert#.net
         # Documentations on insert/upload YT functionality
@@ -60,7 +60,7 @@ def upload_to_youtube(file_base64, file_name, file_size, title, description, use
 
         logger.debug(f'REQ_OUT {upload_response}')
 
-        return "Upload completed successfully!"
+        return upload_response
     except Exception as e:
         logger.debug("Upload Error")
         return f"Error during upload: {str(e)}"

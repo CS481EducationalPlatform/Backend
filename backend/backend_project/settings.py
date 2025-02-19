@@ -12,9 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 import os
 from dotenv import load_dotenv
-from celery.schedules import crontab
 from pathlib import Path
-import logging
 
 load_dotenv()
 

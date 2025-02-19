@@ -4,6 +4,8 @@ import base64
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
+from celery.result import AsyncResult
+
 from rest_framework import viewsets
 
 from .tasks import upload_to_youtube
@@ -11,6 +13,18 @@ from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, Pages
 from .serializers import UserInfoSerializer, TopicSerializer, TagSerializer, CourseSerializer, LessonSerializer, AppliedTagSerializer, PageSerializer, UploadedSerializer
 
 logger = logging.getLogger("django")
+
+#View Task Status
+def get_task_status(request, task_id):
+    logger.debug("Task Status Requested")
+    task_result = AsyncResult(task_id)
+    logger.debug(f"Task Result: {task_result}")
+    response_data = {
+        "task_id": task_id,
+        "status": task_result.status,
+        "result": task_result.result if task_result.ready() else None,
+    }
+    return JsonResponse(response_data)
 
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def upload_video(request):
@@ -50,20 +64,16 @@ def upload_video(request):
 
             logger.debug("Attempting YT Video Enqueue")
             #At a delay (queue with Celery/Redis for task based) call upload
-            upload_to_youtube.delay(
+            task = upload_to_youtube.delay(
                 file_base64,
-                file.name,
                 file.size,
                 title,
                 description,
-                user_id,
-                course_id,
-                page_id,
                 access_token,
             )  # Enqueue Celery task with required information
             logger.debug("YouTube video queued")
 
-            return JsonResponse({"message": "File uploaded successfully", "filename": file.name}, status=200,)
+            return JsonResponse({"message": "File uploaded successfully", "filename": file.name, "task_id":task.id}, status=200,)
         else:
             return JsonResponse({"error": "Invalid Content-Type"}, status=400)
     except Exception as e:
