@@ -9,8 +9,8 @@ from celery.result import AsyncResult
 from rest_framework import viewsets
 
 from .tasks import upload_to_youtube
-from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, Pages, Uploaded
-from .serializers import UserInfoSerializer, TopicSerializer, TagSerializer, CourseSerializer, LessonSerializer, AppliedTagSerializer, PageSerializer, UploadedSerializer
+from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, AppliedTopics, Uploaded
+from .serializers import UserInfoSerializer, TopicSerializer, TagSerializer, CourseSerializer, LessonSerializer, AppliedTagSerializer, AppliedTopicSerializer, UploadedSerializer
 
 logger = logging.getLogger("django")
 
@@ -45,7 +45,6 @@ def upload_video(request):
             description = request.POST.get("description")
             user_id = request.POST.get("user_id")
             course_id = request.POST.get("course_id")
-            page_id = request.POST.get("page_id")
             access_token = request.POST.get("accessToken")
 
             #Ensure file
@@ -54,7 +53,7 @@ def upload_video(request):
 
             # Log received data
             logger.debug(f"Received title: {title}, description: {description}")
-            logger.debug(f"User: {user_id}, Course: {course_id}, Page: {page_id}")
+            logger.debug(f"User: {user_id}, Course: {course_id}")
             logger.debug(f"Access Token: {access_token}")
             logger.debug(f"Received file: {file.name} (Size: {file.size} bytes)")
 
@@ -104,9 +103,9 @@ class AppliedTagViewAll(viewsets.ModelViewSet):
     queryset = AppliedTags.objects.all()
     serializer_class = AppliedTagSerializer
 
-class PageViewAll(viewsets.ModelViewSet):
-    queryset = Pages.objects.all()
-    serializer_class = PageSerializer
+class AppliedTopicViewAll(viewsets.ModelViewSet):
+    queryset = AppliedTopics.objects.all()
+    serializer_class = AppliedTopicSerializer
 
 class UploadedViewAll(viewsets.ModelViewSet):
     queryset = Uploaded.objects.all()

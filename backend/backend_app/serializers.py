@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, Pages, Uploaded
+from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, AppliedTopics, Uploaded
 
 class UserInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,9 +31,9 @@ class AppliedTagSerializer(serializers.ModelSerializer):
         model = AppliedTags
         fields = '__all__'
 
-class PageSerializer(serializers.ModelSerializer):
+class AppliedTopicSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Pages
+        model = AppliedTopics
         fields = '__all__'
 
 class UploadedSerializer(serializers.ModelSerializer):
