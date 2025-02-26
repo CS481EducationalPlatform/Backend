@@ -4,27 +4,70 @@ import base64
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from celery.result import AsyncResult
-
 from rest_framework import viewsets
 
-from .tasks import upload_to_youtube
+from celery.result import AsyncResult
+
+from .tasks import link_uploaded, upload_to_youtube, ensure_playlist_exists
 from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, AppliedTopics, Uploaded
 from .serializers import UserInfoSerializer, TopicSerializer, TagSerializer, CourseSerializer, LessonSerializer, AppliedTagSerializer, AppliedTopicSerializer, UploadedSerializer
 
 logger = logging.getLogger("django")
 
-#View Task Status
-def get_task_status(request, task_id):
-    logger.debug("Task Status Requested")
-    task_result = AsyncResult(task_id)
-    logger.debug(f"Task Result: {task_result}")
-    response_data = {
-        "task_id": task_id,
-        "status": task_result.status,
-        "result": task_result.result if task_result.ready() else None,
-    }
-    return JsonResponse(response_data)
+@csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
+def check_task_status(request, task_id):
+    result = AsyncResult(task_id)
+    if result.ready():
+        return JsonResponse({"status": "completed", "result": result.result})
+    return JsonResponse({"status": "pending"})
+
+@csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
+def ensure_playlist(request):
+    logger.debug("Attempting playlist ensure")
+
+    if(request.method != "POST"):
+        return JsonResponse({"error":"Only POST allowed"}, status=405)
+    
+    try:
+        if request.content_type.startswith("multipart/form-data"):
+            playlist_name = request.POST.get("playlist_name")
+            access_token = request.POST.get("access_token")
+            
+            task_result = ensure_playlist_exists.delay(
+                playlist_name,
+                access_token
+            )
+            logger.debug(f"PLAYLIST TASK ID: {task_result.id}")
+
+            return JsonResponse({f"task_id":task_result.id}, status=202)
+    except Exception as e:
+        logger.error(f"Playlist Ensure attempted but failed: {e}")
+        return JsonResponse({"error": "Internal Server Error in Playlist Ensure"}, status=500)
+
+@csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
+def store_link(request):
+    logger.debug("Attempting video link")
+
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST allowed"}, status=405)
+    try:
+        if request.content_type.startswith("multipart/form-data"):
+            lesson_id = request.POST.get("lesson_id")
+            video_url = request.POST.get("video_url")
+            link = link_uploaded.delay(
+                int(lesson_id),
+                video_url
+            )
+            logger.debug(f"LINKED : {video_url}")
+            if(link == 0):
+                return JsonResponse({"message": "Video linked successfully", "video_url":video_url}, status=200,)
+            else:
+                return JsonResponse({"message": "Video linking failure"}, status=500)
+        else:
+            return JsonResponse({"error": "Invalid Content-Type"}, status=400)
+    except Exception as e:
+        logger.error(f"Linking attempted but failed: {e}")
+        return JsonResponse({"error": "Internal Server Error in Linking"}, status=500)
 
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def upload_video(request):
@@ -43,8 +86,8 @@ def upload_video(request):
             file = request.FILES.get("file")
             title = request.POST.get("title")
             description = request.POST.get("description")
-            user_id = request.POST.get("user_id")
-            course_id = request.POST.get("course_id")
+            lesson_id = request.POST.get("lesson_id")
+            playlist = request.POST.get("playlist")
             access_token = request.POST.get("accessToken")
 
             #Ensure file
@@ -53,7 +96,6 @@ def upload_video(request):
 
             # Log received data
             logger.debug(f"Received title: {title}, description: {description}")
-            logger.debug(f"User: {user_id}, Course: {course_id}")
             logger.debug(f"Access Token: {access_token}")
             logger.debug(f"Received file: {file.name} (Size: {file.size} bytes)")
 
@@ -63,21 +105,26 @@ def upload_video(request):
 
             logger.debug("Attempting YT Video Enqueue")
             #At a delay (queue with Celery/Redis for task based) call upload
-            task = upload_to_youtube.delay(
+            upload_res = upload_to_youtube.delay(
                 file_base64,
                 file.size,
                 title,
                 description,
                 access_token,
+                lesson_id,
+                playlist
             )  # Enqueue Celery task with required information
             logger.debug("YouTube video queued")
 
-            return JsonResponse({"message": "File uploaded successfully", "filename": file.name, "task_id":task.id}, status=200,)
+            if(upload_res == 0):
+                return JsonResponse({"message": "File uploaded successfully", "filename": file.name}, status=200,)
+            else:
+                return JsonResponse({"message": "File upload failure"}, status=500)
         else:
             return JsonResponse({"error": "Invalid Content-Type"}, status=400)
     except Exception as e:
         logger.error(f"Upload attempted but failed: {e}")
-        return JsonResponse({"error": "Internal Server Error"}, status=500)
+        return JsonResponse({"error": "Internal Server Error in Upload"}, status=500)
 
 class UserInfoViewAll(viewsets.ModelViewSet):
     queryset = UserInfo.objects.all()
