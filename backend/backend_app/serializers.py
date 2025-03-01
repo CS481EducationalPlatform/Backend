@@ -1,19 +1,19 @@
 from rest_framework import serializers
-from .models import UserInfo, Topics, Tags, Courses, Lessons, AppliedTags, AppliedTopics, Uploaded
+from .models import UserInfo, Instructor, Topics, Tags, Courses, Lessons, Rating, TopicTag, CourseTag, LessonTag, Uploaded
 
 class UserInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserInfo
         fields = '__all__'
 
+class InstructorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Instructor
+        fields = '__all__'
+
 class TopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topics
-        fields = '__all__'
-
-class TagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Tags
         fields = '__all__'
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -26,14 +26,29 @@ class LessonSerializer(serializers.ModelSerializer):
         model = Lessons
         fields = '__all__'
 
-class AppliedTagSerializer(serializers.ModelSerializer):
+class RatingSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AppliedTags
+        model = Rating
         fields = '__all__'
 
-class AppliedTopicSerializer(serializers.ModelSerializer):
+class TagSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AppliedTopics
+        model = Tags
+        fields = '__all__'
+
+class TopicTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TopicTag
+        fields = '__all__'
+
+class CourseTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseTag
+        fields = '__all__'
+
+class LessonTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LessonTag
         fields = '__all__'
 
 class UploadedSerializer(serializers.ModelSerializer):

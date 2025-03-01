@@ -7,7 +7,7 @@ urlpatterns = [
     #Video Linking
     path("link/", store_link, name="store_link"),
     #Playlist Checking
-    path("playlist/", ensure_playlist, name="ensure_playlist")
+    path("playlist/", ensure_playlist, name="ensure_playlist"),
     # Task Status
     path("status/<str:task_id>/", check_task_status, name="check_task_status")
 ]
