@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Source environment variables
+. /etc/environment
+
 # Wait for PostgreSQL
 echo "Waiting for PostgreSQL to start..."
 sleep 5

@@ -10,3 +10,5 @@ redis
 psycopg2-binary
 google-api-python-client
 python-dotenv
+dj-database-url
+whitenoise
