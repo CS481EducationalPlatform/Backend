@@ -2,9 +2,12 @@
 
 # Source environment variables if .env exists
 if [ -f "/backend_app/.env" ]; then
-    set -a
-    . /backend_app/.env
-    set +a
+    while IFS='=' read -r key value; do
+        # Skip empty lines and comments
+        [ -z "$key" ] || [ "${key#\#}" != "$key" ] && continue
+        # Export the variable
+        export "$key=$value"
+    done < "/backend_app/.env"
 fi
 
 # Set database connection variables from DATABASE_URL if available
