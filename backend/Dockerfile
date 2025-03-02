@@ -22,8 +22,7 @@ ENV PORT=8001
 ENV DEBUG=False
 
 # Generate a default SECRET_KEY if not provided
-RUN SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())') && \
-    echo "SECRET_KEY=$SECRET_KEY" >> /etc/environment
+RUN python -c 'from django.core.management.utils import get_random_secret_key; import os; print(f"export SECRET_KEY={get_random_secret_key()}")' > /backend_app/.env
 
 # Make the entrypoint script executable
 COPY entrypoint.sh /entrypoint.sh

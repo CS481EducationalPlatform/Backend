@@ -1,11 +1,17 @@
 #!/bin/sh
 
-# Source environment variables
-. /etc/environment
+# Source environment variables if .env exists
+if [ -f "/backend_app/.env" ]; then
+    . /backend_app/.env
+fi
 
-# Wait for PostgreSQL
+# Wait for database to be ready (using pg_isready)
 echo "Waiting for PostgreSQL to start..."
-sleep 5
+until pg_isready -h $DATABASE_HOST -p $DATABASE_PORT -U $DATABASE_USER
+do
+    echo "Waiting for PostgreSQL..."
+    sleep 2
+done
 
 # Apply database migrations
 python manage.py migrate --noinput

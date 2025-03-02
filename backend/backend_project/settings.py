@@ -93,11 +93,24 @@ WSGI_APPLICATION = 'backend_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# Parse database configuration from $DATABASE_URL
 DATABASES = {
     'default': dj_database_url.config(
-        default=f"postgresql://{os.getenv('POSTGRES_USER', 'eduplat_user')}:{os.getenv('POSTGRES_PASSWORD', 'eduplat_password')}@{os.getenv('POSTGRES_HOST', 'db')}:{os.getenv('POSTGRES_PORT', '5432')}/{os.getenv('POSTGRES_DB', 'eduplat_database')}"
+        default=os.getenv('DATABASE_URL'),
+        conn_max_age=600,
+        conn_health_checks=True,
     )
 }
+
+if not DATABASES['default']:
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'eduplat_database'),
+        'USER': os.getenv('POSTGRES_USER', 'eduplat_user'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'eduplat_password'),
+        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
