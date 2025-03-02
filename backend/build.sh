@@ -11,13 +11,15 @@ pip install -r requirements.txt
 # Install additional required packages for Render
 pip install gunicorn uvicorn
 
-# Generate SECRET_KEY if not set
+# Ensure SECRET_KEY is set before Django starts
 if [ -z "${SECRET_KEY}" ]; then
-    echo "SECRET_KEY is not set. Generating a new one..."
-    export SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
-    echo "A new SECRET_KEY has been generated. Please set this in your Render environment variables:"
-    echo $SECRET_KEY
+    echo "Generating new SECRET_KEY..."
+    SECRET_KEY=$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')
 fi
+
+# Create or update .env file
+echo "SECRET_KEY='${SECRET_KEY}'" > .env
+echo "DEBUG=False" >> .env
 
 # Convert static asset files
 python manage.py collectstatic --no-input
