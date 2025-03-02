@@ -10,25 +10,29 @@ COPY requirements.txt .
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create logs directory and set permissions (to allow logging)
+RUN mkdir -p /backend_app/logs && chmod -R 777 /backend_app/logs
+
 # Copy the entire Django project into the container
 COPY . .
 
-# Set environment variables to ensure Python behaves correctly
+# Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV PORT=8001
+ENV DEBUG=False
 
-# Expose the port Django runs on
-EXPOSE 8001
+# Generate a default SECRET_KEY if not provided
+RUN python -c "from django.core.management.utils import get_random_secret_key; import os; print(f'export SECRET_KEY={get_random_secret_key()}')" > /backend_app/.env
 
-# Run database migrations and start the Django server
-#CMD ["gunicorn", "backend_project.wsgi:application", "--bind", "0.0.0.0:8001"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--log-level=debug", "--access-logfile=-", "--error-logfile=-", "backend_project.wsgi:application"]
-
-#Create logs directory and set permissions (to allow logging)
-RUN mkdir -p /backend_app/logs && chmod -R 777 /backend_app/logs
-
-#Delay for PostgreSQl
+# Make the entrypoint script executable
 COPY entrypoint.sh /entrypoint.sh
-
 RUN chmod +x /entrypoint.sh
 
+# Expose the port Django runs on (Render will override this with $PORT)
+EXPOSE 8001
+
+# Use the entrypoint script
 ENTRYPOINT ["/entrypoint.sh"]
+
+# Start the application
+CMD gunicorn backend_project.wsgi:application --bind 0.0.0.0:${PORT} --workers 4 --log-level debug
