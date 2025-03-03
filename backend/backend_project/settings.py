@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -54,7 +55,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -62,10 +62,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:8001",
     "http://localhost:8080",
-    "https://cs481educationalplatform.github.io/PrototypeCourseAndLessonPageUI/"  # Your GitHub Pages domain
+    "https://cs481educationalplatform.github.io"  # Remove the path, only include domain
 ]
 
-# Allow credentials in CORS
+# Allow all CORS preflight requests
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # Additional CORS settings for better security

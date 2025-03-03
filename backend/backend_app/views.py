@@ -5,6 +5,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 from celery.result import AsyncResult
 
@@ -149,6 +151,13 @@ class TopicViewAll(viewsets.ModelViewSet):
 class CourseViewAll(viewsets.ModelViewSet):
     queryset = Courses.objects.all()
     serializer_class = CourseSerializer
+
+    @action(detail=True, methods=['get'])
+    def lessons(self, request, pk=None):
+        course = self.get_object()
+        lessons = Lessons.objects.filter(courseID=course)
+        serializer = LessonSerializer(lessons, many=True)
+        return Response(serializer.data)
 
 class LessonViewAll(viewsets.ModelViewSet):
     queryset = Lessons.objects.all()
