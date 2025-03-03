@@ -155,12 +155,12 @@ class CourseViewAll(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'])
     def lessons(self, request, pk=None):
         course = self.get_object()
-        lessons = Lessons.objects.filter(courseID=course)
+        lessons = Lessons.objects.filter(courseID=course).prefetch_related('uploaded_set')
         serializer = LessonSerializer(lessons, many=True)
         return Response(serializer.data)
 
 class LessonViewAll(viewsets.ModelViewSet):
-    queryset = Lessons.objects.all()
+    queryset = Lessons.objects.all().prefetch_related('uploaded_set')
     serializer_class = LessonSerializer
 
 class RatingViewAll(viewsets.ModelViewSet):

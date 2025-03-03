@@ -21,10 +21,17 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Courses
         fields = '__all__'
 
+class UploadedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Uploaded
+        fields = '__all__'
+
 class LessonSerializer(serializers.ModelSerializer):
+    uploads = UploadedSerializer(source='uploaded_set', many=True, read_only=True)
+    
     class Meta:
         model = Lessons
-        fields = '__all__'
+        fields = ['lessonID', 'courseID', 'lessonName', 'lessonDescription', 'uploads']
 
 class RatingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -49,9 +56,4 @@ class CourseTagSerializer(serializers.ModelSerializer):
 class LessonTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = LessonTag
-        fields = '__all__'
-
-class UploadedSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Uploaded
         fields = '__all__'
