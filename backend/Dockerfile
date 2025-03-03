@@ -4,6 +4,11 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /backend_app
 
+# Install system dependencies including PostgreSQL client
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy the requirements file
 COPY requirements.txt .
 
