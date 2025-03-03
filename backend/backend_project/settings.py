@@ -62,6 +62,32 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:8001",
     "http://localhost:8080",
+    "https://cs481educationalplatform.github.io/PrototypeCourseAndLessonPageUI/"  # Your GitHub Pages domain
+]
+
+# Allow credentials in CORS
+CORS_ALLOW_CREDENTIALS = True
+
+# Additional CORS settings for better security
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
