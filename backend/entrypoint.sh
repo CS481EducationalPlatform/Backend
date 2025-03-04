@@ -37,5 +37,44 @@ python manage.py migrate --noinput
 # Collect static files
 python manage.py collectstatic --noinput
 
+# Create Django admin superuser
+echo ""
+echo "======================================================"
+echo "CREATING DJANGO ADMIN SUPERUSER"
+echo "======================================================"
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
+    echo "Creating/updating superuser: $DJANGO_SUPERUSER_USERNAME"
+    python -c "
+import os
+import django
+django.setup()
+from django.contrib.auth.models import User
+
+username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
+email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
+password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+
+try:
+    if User.objects.filter(username=username).exists():
+        user = User.objects.get(username=username)
+        user.email = email
+        user.set_password(password)
+        user.is_staff = True
+        user.is_superuser = True
+        user.save()
+        print(f'Superuser {username} updated successfully')
+    else:
+        user = User.objects.create_superuser(username=username, email=email, password=password)
+        print(f'Superuser {username} created successfully')
+except Exception as e:
+    print(f'Error creating/updating superuser: {e}')
+"
+else
+    echo "WARNING: Superuser not created. Required environment variables not set."
+    echo "Please ensure DJANGO_SUPERUSER_USERNAME, DJANGO_SUPERUSER_EMAIL, and DJANGO_SUPERUSER_PASSWORD are set."
+fi
+echo "======================================================"
+echo ""
+
 # Execute the main command
 exec "$@"
