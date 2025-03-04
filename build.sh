@@ -19,11 +19,5 @@ python manage.py collectstatic --no-input
 # Apply database migrations
 python manage.py migrate
 
-# make admin user from env variables
-python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('$DJANGO_SUPERUSER_USERNAME', '$DJANGO_SUPERUSER_EMAIL', '$DJANGO_SUPERUSER_PASSWORD')"
-
-# Build static files
-npm run build
-
-# Compress static files
-python manage.py compress --force
+# make admin user from secrets
+python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('$(cat /etc/secrets/django_username)', '$(cat /etc/secrets/django_email)', '$(cat /etc/secrets/django_password)')"
