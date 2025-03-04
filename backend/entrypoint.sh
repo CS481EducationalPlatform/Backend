@@ -1,13 +1,44 @@
 #!/bin/sh
 
-# Source environment variables if .env exists
+# Source environment variables if .env exists in the app root
 if [ -f "/backend_app/.env" ]; then
+    echo "Loading environment variables from /backend_app/.env"
     while IFS='=' read -r key value; do
         # Skip empty lines and comments
         [ -z "$key" ] || [ "${key#\#}" != "$key" ] && continue
         # Export the variable
         export "$key=$value"
     done < "/backend_app/.env"
+fi
+
+# Check for Render secret files in /etc/secrets/
+if [ -d "/etc/secrets" ]; then
+    echo "Checking for Render secret files in /etc/secrets/"
+    if [ -f "/etc/secrets/.env" ]; then
+        echo "Loading environment variables from /etc/secrets/.env"
+        while IFS='=' read -r key value; do
+            # Skip empty lines and comments
+            [ -z "$key" ] || [ "${key#\#}" != "$key" ] && continue
+            # Export the variable
+            export "$key=$value"
+        done < "/etc/secrets/.env"
+    fi
+
+    # Also check for individual environment variable files
+    if [ -f "/etc/secrets/DJANGO_SUPERUSER_USERNAME" ]; then
+        export DJANGO_SUPERUSER_USERNAME=$(cat /etc/secrets/DJANGO_SUPERUSER_USERNAME)
+        echo "Loaded DJANGO_SUPERUSER_USERNAME from secret file"
+    fi
+    
+    if [ -f "/etc/secrets/DJANGO_SUPERUSER_EMAIL" ]; then
+        export DJANGO_SUPERUSER_EMAIL=$(cat /etc/secrets/DJANGO_SUPERUSER_EMAIL)
+        echo "Loaded DJANGO_SUPERUSER_EMAIL from secret file"
+    fi
+    
+    if [ -f "/etc/secrets/DJANGO_SUPERUSER_PASSWORD" ]; then
+        export DJANGO_SUPERUSER_PASSWORD=$(cat /etc/secrets/DJANGO_SUPERUSER_PASSWORD)
+        echo "Loaded DJANGO_SUPERUSER_PASSWORD from secret file"
+    fi
 fi
 
 # Set database connection variables from DATABASE_URL if available
@@ -36,6 +67,17 @@ python manage.py migrate --noinput
 
 # Collect static files
 python manage.py collectstatic --noinput
+
+# Debug: Print environment variables for troubleshooting
+echo ""
+echo "======================================================"
+echo "ENVIRONMENT VARIABLES DEBUG"
+echo "======================================================"
+echo "DJANGO_SUPERUSER_USERNAME exists: $(if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then echo "YES"; else echo "NO"; fi)"
+echo "DJANGO_SUPERUSER_EMAIL exists: $(if [ -n "$DJANGO_SUPERUSER_EMAIL" ]; then echo "YES"; else echo "NO"; fi)"
+echo "DJANGO_SUPERUSER_PASSWORD exists: $(if [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then echo "YES"; else echo "NO"; fi)"
+echo "======================================================"
+echo ""
 
 # Create Django admin superuser
 echo ""
