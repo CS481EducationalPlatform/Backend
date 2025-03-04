@@ -19,5 +19,9 @@ python manage.py collectstatic --no-input
 # Apply database migrations
 python manage.py migrate
 
-# make admin user from secrets
-python manage.py createsuperuser --no-input
+# Create Django admin superuser using our custom command
+echo "Creating Django admin superuser..."
+python manage.py create_admin_superuser
+
+# Output success message
+echo "Build completed successfully!"
