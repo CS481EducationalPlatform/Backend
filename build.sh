@@ -20,4 +20,4 @@ python manage.py collectstatic --no-input
 python manage.py migrate
 
 # make admin user from secrets
-python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('$(cat /etc/secrets/django_username)', '$(cat /etc/secrets/django_email)', '$(cat /etc/secrets/django_password)')"
+python manage.py createsuperuser --no-input
