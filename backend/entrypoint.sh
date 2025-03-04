@@ -1,5 +1,17 @@
 #!/bin/sh
 
+# Print important environment variables at the start for debugging
+echo ""
+echo "======================================================"
+echo "INITIAL ENVIRONMENT VARIABLES"
+echo "======================================================"
+echo "DATABASE_URL: $(if [ -n "$DATABASE_URL" ]; then echo "EXISTS (value hidden)"; else echo "NOT SET"; fi)"
+echo "======================================================"
+echo ""
+
+# Store original DATABASE_URL to ensure it's preserved
+ORIGINAL_DATABASE_URL="$DATABASE_URL"
+
 # Source environment variables if .env exists in the app root
 if [ -f "/backend_app/.env" ]; then
     echo "Loading environment variables from /backend_app/.env"
@@ -41,18 +53,35 @@ if [ -d "/etc/secrets" ]; then
     fi
 fi
 
+# Restore the original DATABASE_URL if it was set
+if [ -n "$ORIGINAL_DATABASE_URL" ]; then
+    export DATABASE_URL="$ORIGINAL_DATABASE_URL"
+    echo "Restored original DATABASE_URL from Render"
+fi
+
 # Set database connection variables from DATABASE_URL if available
 if [ -n "$DATABASE_URL" ]; then
+    echo "Extracting database connection details from DATABASE_URL"
     # Extract database connection details from DATABASE_URL
     DATABASE_HOST=$(echo $DATABASE_URL | awk -F[@//] '{print $4}')
     DATABASE_PORT=$(echo $DATABASE_URL | awk -F[:] '{print $4}' | awk -F[/] '{print $1}')
     DATABASE_USER=$(echo $DATABASE_URL | awk -F[:@] '{print $2}')
+    
+    echo "Extracted DATABASE_HOST: $DATABASE_HOST"
+    echo "Extracted DATABASE_PORT: $DATABASE_PORT"
+    echo "Extracted DATABASE_USER: $DATABASE_USER"
+else
+    echo "WARNING: DATABASE_URL is not set!"
 fi
 
 # Use default values if not set
 DATABASE_HOST=${DATABASE_HOST:-localhost}
 DATABASE_PORT=${DATABASE_PORT:-5432}
 DATABASE_USER=${DATABASE_USER:-postgres}
+
+echo "Using DATABASE_HOST: $DATABASE_HOST"
+echo "Using DATABASE_PORT: $DATABASE_PORT"
+echo "Using DATABASE_USER: $DATABASE_USER"
 
 # Wait for database to be ready
 echo "Waiting for PostgreSQL to start..."
