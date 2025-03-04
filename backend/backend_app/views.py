@@ -1,9 +1,13 @@
+import json
 import logging
 import base64
+import re
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 
+import requests
 from rest_framework import viewsets
 
 from celery.result import AsyncResult
@@ -14,8 +18,357 @@ from .serializers import UserInfoSerializer, TopicSerializer, TagSerializer, Cou
 
 logger = logging.getLogger("django")
 
+#Helper function to prevent bad logging from causing actual failures
+def log(print_string):
+    try : logger.debug(print_string) 
+    except : logger.debug("Log_Fail_Caught")
+
+#Helper function to remove OAuth from Authorization Header
+def extract_token_from_header(request):
+    log(f"Called_Extract_Token_From_Header : {request}")
+    auth_header = request.headers.get('Authorization', '')
+    log(f"Auth_Header_Extract: {auth_header}")
+    if auth_header.startswith('Bearer '):
+        return auth_header[7:]
+    return None
+
+#Helper function to remove youtube junk from youtube id in url
+def extract_video_id(youtube_url):
+    log(f"Called_Extract_Video_Id")
+    #Patterns Generated with Claude 3.7 Sonnet
+    patterns=[
+        r'(?:youtube\.com\/watch\?v=|youtu.be\/)([^&\n?]+)',
+        r'youtube\.com\/shorts\/([^&\n?]+)'
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, youtube_url)
+        if match:
+            log(f"Video_Match_Extract : {match.group(1)}")
+            return match.group(1)
+    log(f"ID_Not_Extracted")
+    return None
+
+def fetch_video_details(access_token, video_ids):
+    log(f"Called_Fetch_Video_Details")
+    # Set up API request fields
+    video_ids_str = ",".join(video_ids)
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "snippet,contentDetails,statistics,status",
+        "id": video_ids_str
+    }
+    headers={
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json"
+    }
+
+    #Make API Request
+    response = requests.get(url, params=params, headers=headers)
+
+    if response.status_code != 200:
+        return []
+
+    data = response.json()
+    videos = []
+
+    for item in data.get("items", []):
+        snippet = item.get("snippet", {})
+        content_details = item.get("contentDetails", {})
+        statistics = item.get("statistics", {})
+        status = item.get("status", {})
+        tags = snippet.get("tags", [])
+
+        thumbnails = snippet.get("thumbnails", {})
+        thumbnail_url = None
+        for quality in ["maxres", "standard", "high", "medium", "default"]:
+            if quality in thumbnails:
+                thumbnail_url = thumbnails[quality].get('url')
+                break
+
+        # Made with AI
+        video = {
+            "id": item.get("id"),
+            "title": snippet.get("title", ""),
+            "description": snippet.get("description", ""),
+            "youtube_url": f"https://www.youtube.com/watch?v={item.get('id')}",
+            "thumbnail_url": thumbnail_url,
+            "channel_id": snippet.get("channelId"),
+            "channel_title": snippet.get("channelTitle"),
+            "published_at": snippet.get("publishedAt"),
+            "tags": tags,
+            "category_id": snippet.get("categoryId"),
+            "duration": content_details.get("duration"),
+            "view_count": statistics.get("viewCount", 0),
+            "like_count": statistics.get("likeCount", 0),
+            "comment_count": statistics.get("commentCount", 0),
+            "privacy_status": status.get("privacyStatus"),
+            "embeddable": status.get("embeddable", True),
+            "license": status.get("license"),
+        }
+
+        videos.append(video)
+    log(f"Videos_Fetched : {videos}")
+    return videos
+
+def fetch_youtube_videos(access_token, max_results= 50):
+    log(f"Called_Fetch_Youtube_Videos")
+    videos = []
+    next_page_token = None
+    
+    try:
+        while True:
+            url = "https://www.googleapis.com/youtube/v3/search"
+            params = {
+                "part": "snippet",
+                "forMine": "true",
+                "type": "video",
+                "maxResults": max_results
+            }
+
+            if next_page_token:
+                params["pageToken"] = next_page_token
+
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/json"
+            }
+            
+
+            '''
+            url = "https://www.googleapis.com/youtube/v3/videos"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+            }
+            params = {
+                "part": "snippet,contentDetails,statistics",
+                "mine": "true",
+                "maxResults": 50
+            }
+
+            response = requests.get(url, params=params, headers=headers)
+            log(f"Fetch_Youtube_Videos_Response : {response}")
+
+            if response.status_code == 200:
+                return JsonResponse(response.json())
+            else:
+                return JsonResponse({"error": "Failed to fetch videos"}, status=response.status_code)
+
+            '''
+
+            response = requests.get(url, params=params, headers=headers)
+            log(f"Fetch_Youtube_Videos_Response : {response}")
+
+            if response.status_code != 200:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get("error", {}).get("message", "Unknown Error")
+                    return {"success": False, "error": error_message}
+                except ValueError:
+                    return {"success":False, "error": f"HTTP Error: {response.status_code}"}
+                
+            data = response.json()
+
+            video_ids = [item["id"]["videoId"] for item in data.get("items", [])]
+            if video_ids:
+                detailed_videos = fetch_video_details(access_token, video_ids)
+                videos.extend(detailed_videos)
+
+            next_page_token = data.get("nextPageToken")
+            if not next_page_token:
+                break
+        return {"success":True, "videos":videos}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+@csrf_exempt
+@require_GET
+def get_youtube_videos(request):
+    log(f"Called_Get_Youtube_Videos")
+
+    try:
+        access_token = extract_token_from_header(request)
+        if not access_token:
+            return JsonResponse({
+                "success": False,
+                "error": "No Auth Token Provided Currently"
+            }, status=401)
+
+        result = fetch_youtube_videos(access_token)
+
+        if result["success"]:
+            return JsonResponse({"success": True, "videos": result["videos"]})
+        else:
+            return JsonResponse({"success": False, "error": result["error"]}, status=400)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def update_youtube_video(request):
+    log(f"Called_Update_Youtube_Video")
+    try:
+        access_token = extract_token_from_header(request)
+        if not access_token:
+            return JsonResponse({
+                "success": False,
+                "error": "No Auth Token Provided"
+            }, status=401)
+        
+        data = json.loads(request.body)
+        youtube_url = data.get("youtube_url")
+        if not youtube_url:
+            return JsonResponse({
+                "success": False,
+                "error": "YouTube URL Required"
+            }, status=400)
+        video_data = {
+            'title': data.get('title'),
+            'description': data.get('description'),
+            'tags': data.get('tags'),
+            'categoryId': data.get('categoryId')
+        }
+        video_data = {k: v for k, v in video_data.items() if v if not None} #AI to solve issue
+        video_id = extract_video_id(youtube_url)
+        if not video_id:
+            return JsonResponse({
+                "success": False,
+                "error": "Invalid YouTube URL"
+            }, status=400)
+        log(f"Update_Found_ID : {video_id}")
+    
+        url = "https://www.googleapis.com/youtube/v3/videos"
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+
+        get_response = requests.get(
+            f"{url}?id={video_id}&part=snippet,status",
+            headers=headers
+        )
+
+        log(f"Update_Get_Info : {get_response}")
+
+        response_data = get_response.json()
+        video_resource = response_data.get("items", [])[0] if response_data.get("items") else None
+        if not video_resource:
+            return JsonResponse({
+                "success": False,
+                "error": "Video not Found"
+            }, status=404)
+    
+        snippet = video_resource.get("snippet", {})
+        for key, value in video_data.items():
+            if key in snippet:
+                snippet[key] = value
+
+        update_data = {
+            "id": video_id,
+            "snippet": snippet,
+            "status": video_resource.get("status", {})
+        }
+
+        update_response = requests.put(
+            f"{url}?part=snippet,status",
+            headers=headers,
+            json=update_data
+        )
+
+        log(f"Updated : {update_response}")
+
+        if update_response.status_code == 200:
+            return JsonResponse({"success":True, "message":"Video Update Success"}, status=200)
+        else:
+            try:
+                error_data = update_response.json()
+                return JsonResponse({"success":False, "error": error_data.get("error", {}).get("message", "Unknown Error")}, status=update_response.status_code)
+            except ValueError:
+                return JsonResponse({"success":False, "error": f"Status Code: {update_response.status_code}"}, status=update_response.status_code)
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "success": False,
+            "error": "Invalid JSON in Request Body"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_POST
+def delete_youtube_video(request):
+    log(f"Called_Delete_Youtube_Video")
+    try:
+        access_token = extract_token_from_header(request)
+        if not access_token:
+            return JsonResponse({
+                "success": False,
+                "error": "No Auth Token Provided"
+            }, status=401)
+        
+        data = json.loads(request.body)
+        youtube_url = data.get("youtube_url")
+        if not youtube_url:
+            return JsonResponse({
+                "success": False,
+                "error": "YouTube URL Required"
+            }, status=400)
+        
+        video_id = extract_video_id(youtube_url)
+        if not video_id:
+            return JsonResponse({
+                "success": False,
+                "error": "Invalid YouTube URL"
+            }, status=400)
+        
+        log(f"Deleting_ID : {video_id}")
+    
+        #url = f"https://www.googleapis.com/youtube/v3/video?id={video_id}"
+        url = f"https://www.googleapis.com/youtube/v3/videos?id={video_id}"
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json"
+        }
+
+        response = requests.delete(url, headers=headers)
+
+        log(f"Delete_Response : {response}")
+
+        if response.status_code == 204:
+            return JsonResponse({
+                "success": True,
+                "message": f"Video {video_id} Deletion Success"
+            })
+        else:
+            try:
+                error_data = response.json()
+                return JsonResponse({
+                    "success": False,
+                    "error": error_data.get("error", {}).get("message", "Unknown Error")
+                }, status=response.status_code)
+            except ValueError:
+                return JsonResponse({
+                    "success": False,
+                    "error": f"Status Code: {response.status_code}"
+                }, status=response.status_code)
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            "success": False,
+            "error": "Invalid JSON in Request Body"
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=500)
+
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def check_task_status(request, task_id):
+    log(f"Called_Check_Task_Status")
     result = AsyncResult(task_id)
     if result.ready():
         return JsonResponse({"status": "completed", "result": result.result})
@@ -23,7 +376,7 @@ def check_task_status(request, task_id):
 
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def ensure_playlist(request):
-    logger.debug("Attempting playlist ensure")
+    log("Attempting playlist ensure")
 
     if(request.method != "POST"):
         return JsonResponse({"error":"Only POST allowed"}, status=405)
@@ -37,7 +390,7 @@ def ensure_playlist(request):
                 playlist_name,
                 access_token
             )
-            logger.debug(f"PLAYLIST TASK ID: {task_result.id}")
+            log(f"PLAYLIST TASK ID: {task_result.id}")
 
             return JsonResponse({f"task_id":task_result.id}, status=202)
     except Exception as e:
@@ -46,7 +399,7 @@ def ensure_playlist(request):
 
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def store_link(request):
-    logger.debug("Attempting video link")
+    log("Attempting video link")
 
     if request.method != "POST":
         return JsonResponse({"error": "Only POST allowed"}, status=405)
@@ -58,7 +411,7 @@ def store_link(request):
                 int(lesson_id),
                 video_url
             )
-            logger.debug(f"LINKED : {video_url}")
+            log(f"LINKED : {video_url}")
             if(link == 0):
                 return JsonResponse({"message": "Video linked successfully", "video_url":video_url}, status=200,)
             else:
@@ -71,7 +424,7 @@ def store_link(request):
 
 @csrf_exempt #Disable CSRF, need Proper Authentication CHANGE
 def upload_video(request):
-    logger.debug("Attempting video upload")
+    log("Attempting video upload")
 
     #Ensure POST is used to give data to backend
     if request.method != "POST":
@@ -80,7 +433,7 @@ def upload_video(request):
     try:
        # Ensure it's a file upload request that can hold a file as JSON will not
         if request.content_type.startswith("multipart/form-data"):
-            logger.debug("Processing multipart/form-data request")
+            log("Processing multipart/form-data request")
 
             #Parse information
             file = request.FILES.get("file")
@@ -95,15 +448,15 @@ def upload_video(request):
                 return JsonResponse({"error": "File is required"}, status=400)
 
             # Log received data
-            logger.debug(f"Received title: {title}, description: {description}")
-            logger.debug(f"Access Token: {access_token}")
-            logger.debug(f"Received file: {file.name} (Size: {file.size} bytes)")
+            log(f"Received title: {title}, description: {description}")
+            log(f"Access Token: {access_token}")
+            log(f"Received file: {file.name} (Size: {file.size} bytes)")
 
             #Read file and encode to base64 for transfer
             file_data = file.read()
             file_base64 = base64.b64encode(file_data).decode()
 
-            logger.debug("Attempting YT Video Enqueue")
+            log("Attempting YT Video Enqueue")
             #At a delay (queue with Celery/Redis for task based) call upload
             upload_res = upload_to_youtube.delay(
                 file_base64,
@@ -114,7 +467,7 @@ def upload_video(request):
                 lesson_id,
                 playlist
             )  # Enqueue Celery task with required information
-            logger.debug("YouTube video queued")
+            log("YouTube video queued")
 
             if(upload_res == 0):
                 return JsonResponse({"message": "File uploaded successfully", "filename": file.name}, status=200,)

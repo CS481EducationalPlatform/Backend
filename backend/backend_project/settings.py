@@ -60,7 +60,17 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:8001",
     "http://localhost:8080",
+
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
+    "http://127.0.0.1:8080",
 ]
+
+# TEMPORARY CHANGE
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = True
 
 CELERY_BROKER_URL = "redis://redis:6379/0"
 BROKER_CONNECTION_RETRY_ON_STARTUP = True

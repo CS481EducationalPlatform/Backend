@@ -20,14 +20,20 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8001
 
 # Run database migrations and start the Django server
-#CMD ["gunicorn", "backend_project.wsgi:application", "--bind", "0.0.0.0:8001"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8001", "--log-level=debug", "--access-logfile=-", "--error-logfile=-", "backend_project.wsgi:application"]
 
 #Create logs directory and set permissions (to allow logging)
 RUN mkdir -p /backend_app/logs && chmod -R 777 /backend_app/logs
 
 #Delay for PostgreSQl
-COPY entrypoint.sh /entrypoint.sh
+RUN echo "#!/bin/sh\n\
+set -e\n\
+echo \"Applying database migrations...\"\n\
+python manage.py migrate --noinput\n\
+echo \"Starting Gunicorn...\"\n\
+exec \"\$@\"" > /entrypoint.sh
+
+#COPY entrypoint.sh /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
