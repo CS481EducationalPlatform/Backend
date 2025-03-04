@@ -9,6 +9,12 @@ echo "DATABASE_URL: $(if [ -n "$DATABASE_URL" ]; then echo "EXISTS (value hidden
 echo "======================================================"
 echo ""
 
+# Debug directly reading the environment variables
+echo "Direct environment variable reading:"
+printenv | grep DJANGO_SUPERUSER | cut -d= -f1
+echo "DJANGO_SUPERUSER_PASSWORD is directly defined: $(if printenv | grep -q DJANGO_SUPERUSER_PASSWORD; then echo "YES"; else echo "NO"; fi)"
+echo ""
+
 # Store original DATABASE_URL to ensure it's preserved
 ORIGINAL_DATABASE_URL="$DATABASE_URL"
 
@@ -51,6 +57,15 @@ if [ -d "/etc/secrets" ]; then
         export DJANGO_SUPERUSER_PASSWORD=$(cat /etc/secrets/DJANGO_SUPERUSER_PASSWORD)
         echo "Loaded DJANGO_SUPERUSER_PASSWORD from secret file"
     fi
+fi
+
+# Try direct capture of environment variables
+# Save password from environment directly
+DIRECT_PASSWORD=$(printenv DJANGO_SUPERUSER_PASSWORD)
+if [ -n "$DIRECT_PASSWORD" ]; then
+    echo "Captured password directly from environment variable"
+    # Re-export it to ensure it's available
+    export DJANGO_SUPERUSER_PASSWORD="$DIRECT_PASSWORD"
 fi
 
 # Restore the original DATABASE_URL if it was set
@@ -105,8 +120,15 @@ echo "======================================================"
 echo "DJANGO_SUPERUSER_USERNAME exists: $(if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then echo "YES"; else echo "NO"; fi)"
 echo "DJANGO_SUPERUSER_EMAIL exists: $(if [ -n "$DJANGO_SUPERUSER_EMAIL" ]; then echo "YES"; else echo "NO"; fi)"
 echo "DJANGO_SUPERUSER_PASSWORD exists: $(if [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then echo "YES"; else echo "NO"; fi)"
+echo "Direct password capture exists: $(if [ -n "$DIRECT_PASSWORD" ]; then echo "YES"; else echo "NO"; fi)"
 echo "======================================================"
 echo ""
+
+# Try to create superuser using direct password if standard variable is not available
+if [ -z "$DJANGO_SUPERUSER_PASSWORD" ] && [ -n "$DIRECT_PASSWORD" ]; then
+    echo "Using directly captured password instead of environment variable"
+    export DJANGO_SUPERUSER_PASSWORD="$DIRECT_PASSWORD"
+fi
 
 # Create Django admin superuser
 echo ""
@@ -115,9 +137,15 @@ echo "CREATING DJANGO ADMIN SUPERUSER"
 echo "======================================================"
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ]; then
     echo "Creating/updating superuser: $DJANGO_SUPERUSER_USERNAME"
+    # Try direct approach without Python code
+    echo "Attempting to create superuser using direct approach..."
+    DJANGO_SUPERUSER_PASSWORD="$DJANGO_SUPERUSER_PASSWORD" python manage.py createsuperuser --noinput --username="$DJANGO_SUPERUSER_USERNAME" --email="$DJANGO_SUPERUSER_EMAIL" || echo "Direct approach failed, trying alternative method"
+    
+    # Backup approach using Python code
     python -c "
 import os
 import django
+import sys
 django.setup()
 from django.contrib.auth.models import User
 
@@ -125,20 +153,31 @@ username = os.environ.get('DJANGO_SUPERUSER_USERNAME')
 email = os.environ.get('DJANGO_SUPERUSER_EMAIL')
 password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
 
-try:
-    if User.objects.filter(username=username).exists():
-        user = User.objects.get(username=username)
-        user.email = email
-        user.set_password(password)
-        user.is_staff = True
-        user.is_superuser = True
-        user.save()
-        print(f'Superuser {username} updated successfully')
-    else:
-        user = User.objects.create_superuser(username=username, email=email, password=password)
-        print(f'Superuser {username} created successfully')
-except Exception as e:
-    print(f'Error creating/updating superuser: {e}')
+print(f'Debug - Python environment variables:')
+print(f'Username available: {username is not None}')
+print(f'Email available: {email is not None}')
+print(f'Password available: {password is not None}')
+
+if username and email and password:
+    try:
+        if User.objects.filter(username=username).exists():
+            user = User.objects.get(username=username)
+            user.email = email
+            user.set_password(password)
+            user.is_staff = True
+            user.is_superuser = True
+            user.save()
+            print(f'Superuser {username} updated successfully')
+        else:
+            user = User.objects.create_superuser(username=username, email=email, password=password)
+            print(f'Superuser {username} created successfully')
+    except Exception as e:
+        print(f'Error creating/updating superuser: {e}')
+else:
+    print(f'Missing required environment variables:')
+    print(f'Username: {username is not None}')
+    print(f'Email: {email is not None}')
+    print(f'Password: {password is not None}')
 "
 else
     echo "WARNING: Superuser not created. Required environment variables not set."
