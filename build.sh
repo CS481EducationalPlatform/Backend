@@ -20,8 +20,23 @@ python manage.py collectstatic --no-input
 python manage.py migrate
 
 # Create Django admin superuser using our custom command
-echo "Creating Django admin superuser..."
+echo ""
+echo "======================================================"
+echo "STARTING DJANGO ADMIN SUPERUSER CREATION"
+echo "======================================================"
+echo "Environment variables:"
+echo "DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-not set}"
+echo "DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-not set}"
+echo "DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:+set but not shown}"
+echo ""
+
 python manage.py create_admin_superuser
+
+echo ""
+echo "======================================================"
+echo "COMPLETED DJANGO ADMIN SUPERUSER CREATION"
+echo "======================================================"
+echo ""
 
 # Output success message
 echo "Build completed successfully!"
