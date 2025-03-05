@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 import os
+import dj_database_url
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -23,10 +24,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "default-key-for-dev")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 
@@ -45,14 +46,15 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -60,21 +62,38 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8000",
     "http://localhost:8001",
     "http://localhost:8080",
-
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:8000",
-    "http://127.0.0.1:8001",
-    "http://127.0.0.1:8080",
+    "https://cs481educationalplatform.github.io"  # Remove the path, only include domain
 ]
 
-# TEMPORARY CHANGE
-CORS_ALLOW_ALL_ORIGINS = True
-
+# Allow all CORS preflight requests
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
-CELERY_BROKER_URL = "redis://redis:6379/0"
+# Additional CORS settings for better security
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
 BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
@@ -98,18 +117,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend_project.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# Use dj_database_url to parse the DATABASE_URL environment variable
+database_config = dj_database_url.config(
+    default=os.getenv('DATABASE_URL'),
+    conn_max_age=600,
+    conn_health_checks=True,
+)
+
 DATABASES = {
-    'default': {
+    'default': database_config if database_config else {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv("POSTGRES_DB", "eduplat_database"),
-        'USER': os.getenv("POSTGRES_USER", "eduplat_user"),
-        'PASSWORD': os.getenv("POSTGRES_PASSWORD", "eduplat_password"),
-        'HOST': os.getenv("POSTGRES_HOST", "db"),  # This should match the service name
-        'PORT': os.getenv("POSTGRES_PORT", "5432"),
+        'NAME': os.getenv('POSTGRES_DB', 'eduplat_database'),
+        'USER': os.getenv('POSTGRES_USER', 'eduplat_user'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'eduplat_password'),
+        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
 
@@ -131,7 +156,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
@@ -143,12 +167,13 @@ USE_I18N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
