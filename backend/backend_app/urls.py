@@ -20,6 +20,8 @@ router.register(r'lesson-tags', LessonTagViewAll, basename="lesson-tags")
 router.register(r'uploaded', UploadedViewAll, basename="uploaded")
 
 urlpatterns = [
+    path("upload/", include("upload_urls")),
+    path('youtube/', include("youtube_urls")),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
 ]

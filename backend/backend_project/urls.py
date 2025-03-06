@@ -18,8 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path("upload/", include("backend_app.upload_urls")),
-    path('youtube/', include("backend_app.youtube_urls")),
     path('api/', include('backend_app.urls')),
     path('admin/', admin.site.urls),
 ]
