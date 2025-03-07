@@ -40,6 +40,19 @@ def extract_token_from_header(request):
     log(f"Auth_Header_Extract: {auth_header}")
     if auth_header.startswith('Bearer '):
         return auth_header[7:]
+    
+    #Depending on request format might also be within body data
+    try:
+        body_data = json.loads(request.body)
+        if isinstance(body_data, dict) and 'data' in body_data:
+            data_str = body_data['data']
+            data_obj = json.loads(data_str)
+            if 'headers' in data_obj and 'Authorization' in data_obj['headers']:
+                auth = data_obj['headers']['Authorization']
+                if auth.startswith('Bearer '):
+                    return auth[7:]
+    except:
+        pass
     return None
 
 #Helper function to remove youtube junk from youtube id in url
