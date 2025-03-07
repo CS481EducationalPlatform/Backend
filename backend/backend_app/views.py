@@ -486,8 +486,95 @@ def upload_video(request):
         else:
             return JsonResponse({"error": "Invalid Content-Type"}, status=400)
     except Exception as e:
-        logger.error(f"Upload attempted but failed: {e}")
-        return JsonResponse({"error": "Internal Server Error in Upload"}, status=500)
+        logger.error(f"Upload attempted but failed using Redis/Celery: {e}")
+        log(f"Upload_Retry_Without_CeleRedis")
+
+        try:
+            #ReBuild information from above, but instead of task do here
+            file = request.FILES.get("file")
+            title = request.POST.get("title")
+            description = request.POST.get("description")
+            lesson_id = request.POST.get("lesson_id")
+            playlist = request.POST.get("playlist")
+            access_token = request.POST.get("accessToken")
+            if not file:
+                return JsonResponse({"error": "File is required"}, status=400)
+            file_data = file.read()
+            file_base64 = base64.b64encode(file_data).decode()
+            #file_base64, file.size, title, description, access_token, lesson_id, playlist
+
+            #COPIED CODE FROM tasks.py upload_to_youtube task
+            if(lesson_id is None):
+                return JsonResponse({"error": "Lesson ID None"}, status=400)
+            try:
+                # https://developers.google.com/youtube/v3/docs/videos/insert#.net
+                # Documentations on insert/upload YT functionality
+                metadata = {
+                    "snippet":{
+                        "title":title,
+                        "description":description,
+                        "tags":["Test"], #Will need to swap out for user provided course tags CHANGE
+                        "categoryId": "27", #educational lock
+                    },
+                    "status":{
+                        "madeForKids":False, #Might not function as intended anymore CHANGE
+                        "privacyStatus": "public",
+                    }
+                }
+                headers = {
+                    "Authorization":f"Bearer {access_token}" #Use our ClientID with UserAuth
+                }
+
+                #Post request to youtube to get resumable URL
+                init_response = requests.post(
+                    "https://www.googleapis.com/upload/youtube/v3/videos",
+                    params={
+                        "part":"snippet, status", 
+                        "uploadType":"resumable"
+                    },
+                    headers=headers,
+                    json=metadata
+                )
+
+                if init_response.status_code != 200:
+                    raise Exception(f"Error intiating upload: {init_response.text}")
+                resumable_url = init_response.headers['Location']
+
+                #decode b64 to binary
+                file_data = base64.b64decode(file_base64)
+                #Use resumable URL to upload video binary data
+                upload_response = requests.put(
+                    resumable_url,
+                    headers={
+                        "Content-Type": "video/mp4",
+                        "Content-Length": str(file.size)
+                    },
+                    data=file_data
+                )
+                
+                if upload_response.status_code != 200:
+                    raise Exception(f"Error uploading video: {upload_response.text}")
+
+                response_dict = upload_response.json()
+                video_id = response_dict.get("id")
+                logger.debug(f'Youtube_Link https://www.youtube.com/watch?v={video_id}')
+
+                lesson_id = int(lesson_id)
+                lesson = Lessons.objects.get(lessonID=lesson_id)
+                upload = Uploaded.objects.create(lessonID=lesson, videoURL="https://www.youtube.com/watch?v="+video_id)
+                logger.debug(f"Upload_Status {upload}")
+
+                #If a playlist is given
+                #CHANGE if fixing playlist feature
+                    
+                return JsonResponse({"message": "File uploaded successfully", "filename": file.name}, status=200,)
+            
+            except Exception as e:
+                logger.debug(f"Upload Error {str(e)}")
+                return JsonResponse({"error": "Internal Server Error in Upload"}, status=500)
+        except Exception as e:
+            logger.debug(f"Upload Error {str(e)}")
+            return JsonResponse({"error": "Internal Server Error in Upload Outer?"}, status=500)
 
 class UserInfoViewAll(viewsets.ModelViewSet):
     queryset = UserInfo.objects.all()
