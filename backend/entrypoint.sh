@@ -42,12 +42,14 @@ python manage.py migrate --noinput
 # Collect static files
 python manage.py collectstatic --noinput
 
-# Create Django superuser using environment variables
+# Create Django superuser using environment variables conditionally
 echo ""
 echo "======================================================"
-echo "CREATING DJANGO SUPERUSER"
+echo "CREATING DJANGO SUPERUSER IF NOT EXISTS"
 echo "======================================================"
-python manage.py createsuperuser --noinput || true
+if ! python manage.py shell -c "from django.contrib.auth.models import User; User.objects.filter(username='$DJANGO_SUPERUSER_USERNAME').exists()"; then
+    python manage.py createsuperuser --noinput
+fi
 echo "======================================================"
 echo ""
 
