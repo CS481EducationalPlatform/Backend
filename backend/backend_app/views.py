@@ -591,12 +591,31 @@ class CourseViewAll(viewsets.ModelViewSet):
     queryset = Courses.objects.all()
     serializer_class = CourseSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Courses.DoesNotExist:
+            return Response({
+                "status": "under_construction",
+                "message": "🚧 Oops! This course is still under construction! 🏗️",
+                "details": "Our educational architects are hard at work building something amazing. Check back soon!",
+                "emoji": "👷‍♂️"
+            }, status=404)
+
     @action(detail=True, methods=['get'])
     def lessons(self, request, pk=None):
-        course = self.get_object()
-        lessons = Lessons.objects.filter(courseID=course).prefetch_related('uploaded_set')
-        serializer = LessonSerializer(lessons, many=True)
-        return Response(serializer.data)
+        try:
+            course = self.get_object()
+            lessons = Lessons.objects.filter(courseID=course).prefetch_related('uploaded_set')
+            serializer = LessonSerializer(lessons, many=True)
+            return Response(serializer.data)
+        except Courses.DoesNotExist:
+            return Response({
+                "status": "under_construction",
+                "message": "🚧 This course's lessons are still being crafted! 🏗️",
+                "details": "Our educational chefs are cooking up some amazing content. Come back soon!",
+                "emoji": "👨‍🍳"
+            }, status=404)
 
 class LessonViewAll(viewsets.ModelViewSet):
     queryset = Lessons.objects.all().prefetch_related('uploaded_set')
