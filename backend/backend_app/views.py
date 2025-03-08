@@ -156,28 +156,6 @@ def fetch_youtube_videos(access_token, max_results= 50):
                 "Authorization": f"Bearer {access_token}",
                 "Accept": "application/json"
             }
-            
-
-            '''
-            url = "https://www.googleapis.com/youtube/v3/videos"
-            headers = {
-                "Authorization": f"Bearer {access_token}",
-            }
-            params = {
-                "part": "snippet,contentDetails,statistics",
-                "mine": "true",
-                "maxResults": 50
-            }
-
-            response = requests.get(url, params=params, headers=headers)
-            log(f"Fetch_Youtube_Videos_Response : {response}")
-
-            if response.status_code == 200:
-                return JsonResponse(response.json())
-            else:
-                return JsonResponse({"error": "Failed to fetch videos"}, status=response.status_code)
-
-            '''
 
             response = requests.get(url, params=params, headers=headers)
             log(f"Fetch_Youtube_Videos_Response : {response}")
@@ -186,9 +164,17 @@ def fetch_youtube_videos(access_token, max_results= 50):
                 try:
                     error_data = response.json()
                     error_message = error_data.get("error", {}).get("message", "Unknown Error")
+                    # Check specifically for token expiration
+                    if response.status_code == 401:
+                        return {
+                            "success": False,
+                            "error": "Token expired",
+                            "error_code": "TOKEN_EXPIRED",
+                            "details": error_message
+                        }
                     return {"success": False, "error": error_message}
                 except ValueError:
-                    return {"success":False, "error": f"HTTP Error: {response.status_code}"}
+                    return {"success": False, "error": f"HTTP Error: {response.status_code}"}
                 
             data = response.json()
 
@@ -200,7 +186,7 @@ def fetch_youtube_videos(access_token, max_results= 50):
             next_page_token = data.get("nextPageToken")
             if not next_page_token:
                 break
-        return {"success":True, "videos":videos}
+        return {"success": True, "videos": videos}
     except Exception as e:
         return {"success": False, "error": str(e)}
 

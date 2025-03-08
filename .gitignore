@@ -10,9 +10,6 @@ venv/
 __pycache__/
 *.pyc
 
-# Ignore Django secret key COMMENT OUT IF PUBLISHING PUBLICLY!!!
-# backend/backend_project/settings.py
-
 db.sqlite3
 
 # Ignore logs
